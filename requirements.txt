@@ -7,5 +7,5 @@ nltk
 scikit-learn
 matplotlib
 shap
-pytesseract
+paddleocr
 uvicorn
