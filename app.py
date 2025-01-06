@@ -91,13 +91,16 @@ with tab1:
                 
     # SHAP Explanation Option (for text only)
     if st.checkbox("Show Explanation", key='shap_checkbox'):
-        if not input_sms.strip():
+        if input_sms.strip() == "":
             st.warning("⚠️ Please enter a message to display the explanation.")
         else:
             st.write("### SHAP Explanation")
             try:
-                # Generate SHAP values
+                # Ensure transformed_sms is defined
+                transformed_sms = transform_text(input_sms)
                 vector_input = tfidf.transform([transformed_sms])
+
+                # Generate SHAP values
                 shap_values = explainer.shap_values(vector_input)
 
                 # Display SHAP contributions
@@ -108,6 +111,7 @@ with tab1:
 
             except Exception as e:
                 st.error(f"❌ Error generating SHAP explanation: {e}")
+
 
 # Tab 2: CSV File Upload
 with tab2:
