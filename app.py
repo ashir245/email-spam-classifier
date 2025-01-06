@@ -5,7 +5,6 @@ from nltk.stem.porter import PorterStemmer
 from PIL import Image
 import easyocr
 import numpy as np
-import shap
 import matplotlib.pyplot as plt
 import nltk
 from nltk.corpus import stopwords
@@ -60,14 +59,6 @@ except FileNotFoundError:
     st.error("❌ Model or vectorizer file not found. Please ensure the files are in the correct location.")
     st.stop()
 
-# Provide a small sample dataset for SHAP background data
-sample_texts = ["This is a spam message", "Hello, how are you?", "Win a free car today!", "This is not spam"]
-background_data = tfidf.transform([transform_text(text) for text in sample_texts]).toarray()  # Convert to dense array
-
-# Initialize SHAP explainer with a masker for the correct background shape
-masker = shap.maskers.Independent(background_data)
-explainer = shap.Explainer(model.predict_proba, masker)
-
 # Streamlit App
 st.title("📧 Email/SMS Spam Classifier")
 st.write("### 🔍 Detect Spam in Text, CSV Files, or Images")
@@ -88,32 +79,6 @@ with tab1:
                 vector_input = tfidf.transform([transformed_sms]).toarray()  # Convert to dense array
                 result = model.predict(vector_input)[0]
                 st.success("✅ Not Spam" if result == 0 else "🚨 Spam")
-                
-    # SHAP Explanation Option (for text only)
-    if st.checkbox("Show Explanation", key='shap_checkbox'):
-        if not input_sms.strip():
-            st.warning("⚠️ Please enter a message to display the explanation.")
-        else:
-            st.write("### SHAP Explanation")
-            try:
-                transformed_sms = transform_text(input_sms)
-                vector_input = tfidf.transform([transformed_sms]).toarray()  # Convert to dense array
-
-                # Generate SHAP values
-                shap_values = explainer(vector_input)
-
-                # Display SHAP contributions
-                st.write("#### Contribution of Words to Prediction")
-                fig, ax = plt.subplots(figsize=(10, 5))
-                shap.bar_plot(
-                    shap_values[0].values,  # Correctly access SHAP values for the instance
-                    feature_names=tfidf.get_feature_names_out(),  # Feature names from the vectorizer
-                    max_display=10  # Display top 10 features
-                )
-                st.pyplot(fig)
-
-            except Exception as e:
-                st.error(f"❌ Error generating SHAP explanation: {e}")
 
 # Tab 2: CSV File Upload
 with tab2:
@@ -157,7 +122,7 @@ with tab3:
                     transformed_text = transform_text(extracted_text)
                     vector_input = tfidf.transform([transformed_text]).toarray()
                     prediction = model.predict(vector_input)[0]
-                    st.write(f"Classification: {'✅ Not Spam' if prediction == 0 else '🚨 Spam'}")
+                    st.write(f"Classification: {'✅ Not Spam' if prediction == 0 else "🚨 Spam"}")
                 else:
                     st.warning(f"⚠️ No text found in {image_file.name}.")
             except Exception as e:
