@@ -18,9 +18,9 @@ nltk.download('punkt')
 ps = PorterStemmer()
 
 # Initialize EasyOCR Reader
-reader = easyocr.Reader(['en'])  # Specify language(s)
+reader = easyocr.Reader(['en'])
 
-# Custom CSS for background color and styling
+# Custom CSS for styling
 st.markdown("""
     <style>
     body {
@@ -39,17 +39,17 @@ st.markdown("""
 # Function to preprocess and transform text
 def transform_text(text):
     text = text.lower().replace("\n", " ").strip()
-    words = text.split()  # Split by spaces
-    words = [word for word in words if word.isalnum()]  # Remove non-alphanumeric words
+    words = text.split()
+    words = [word for word in words if word.isalnum()]
     custom_stopwords = set(["the", "and", "is", "in", "to", "it", "of", "for", "on", "this", "a"])
-    words = [word for word in words if word not in custom_stopwords]  # Remove stopwords
-    words = [ps.stem(word) for word in words]  # Perform stemming
+    words = [word for word in words if word not in custom_stopwords]
+    words = [ps.stem(word) for word in words]
     return " ".join(words)
 
 # Extract text using EasyOCR
 def extract_text_from_image(image):
     image_array = np.array(image)
-    results = reader.readtext(image_array, detail=0)  # Extract text without bounding boxes
+    results = reader.readtext(image_array, detail=0)
     return " ".join(results)
 
 # Load the TF-IDF vectorizer and classifier model
@@ -84,7 +84,6 @@ with tab1:
             st.warning("⚠️ Please enter a message to classify.")
         else:
             with st.spinner("🔄 Processing your message..."):
-                # Preprocess and classify
                 transformed_sms = transform_text(input_sms)
                 vector_input = tfidf.transform([transformed_sms])
                 result = model.predict(vector_input)[0]
@@ -97,23 +96,19 @@ with tab1:
         else:
             st.write("### SHAP Explanation")
             try:
-                # Ensure the text is transformed
                 transformed_sms = transform_text(input_sms)
-                
-                # Generate SHAP values
-                shap_values = explainer([transformed_sms])
-
-                # Display SHAP contributions
+                vector_input = tfidf.transform([transformed_sms])
+                shap_values = explainer(vector_input)
                 st.write("#### Contribution of Words to Prediction")
                 fig, ax = plt.subplots(figsize=(10, 5))
                 shap.summary_plot(
                     shap_values,
+                    vector_input.toarray(),
                     feature_names=tfidf.get_feature_names_out(),
                     plot_type="bar",
                     show=False
                 )
                 st.pyplot(fig)
-
             except Exception as e:
                 st.error(f"❌ Error generating SHAP explanation: {e}")
 
