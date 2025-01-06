@@ -3,12 +3,15 @@ import pickle
 import pandas as pd
 from nltk.stem.porter import PorterStemmer
 from PIL import Image
-import pytesseract
+from paddleocr import PaddleOCR
 import shap
 import matplotlib.pyplot as plt
 
 # Initialize the stemmer
 ps = PorterStemmer()
+
+# Initialize PaddleOCR
+ocr = PaddleOCR(use_angle_cls=True, lang='en')
 
 # Custom CSS for background color and styling
 st.markdown("""
@@ -37,7 +40,7 @@ def transform_text(text):
     # Remove non-alphanumeric words
     words = [word for word in words if word.isalnum()]
     
-    # Remove stopwords (use custom list)
+    # Remove stopwords (custom list)
     custom_stopwords = set(["the", "and", "is", "in", "to", "it", "of", "for", "on", "this", "a"])
     words = [word for word in words if word not in custom_stopwords]
     
@@ -45,6 +48,12 @@ def transform_text(text):
     words = [ps.stem(word) for word in words]
     
     return " ".join(words)
+
+# Extract text using PaddleOCR
+def extract_text_from_image(image):
+    results = ocr.ocr(image, cls=True)
+    extracted_text = " ".join([line[1][0] for line in results[0]])
+    return extracted_text
 
 # Load the TF-IDF vectorizer and classifier model
 try:
@@ -84,50 +93,6 @@ with tab1:
                 
                 # Display classification result
                 st.success("✅ Not Spam" if result == 0 else "🚨 Spam")
-                
-    # SHAP Explanation Option (for text only)
-    if st.checkbox("Show Explanation", key='shap_checkbox'):
-        if not input_sms.strip():
-            st.warning("⚠️ Please enter a message to display the explanation.")
-        else:
-            st.write("### SHAP Explanation")
-            try:
-                # Generate SHAP explanation
-                shap_values = explainer([input_sms])
-                tokens = shap_values.data[0]  # Extract tokens
-                contributions = shap_values.values[0]  # SHAP contributions
-                
-                # Create a DataFrame for better organization
-                shap_df = pd.DataFrame({
-                    'Token': tokens,
-                    'Contribution': contributions
-                })
-                shap_df['Direction'] = shap_df['Contribution'].apply(lambda x: "Spam" if x > 0 else "Not Spam")
-                shap_df = shap_df.sort_values('Contribution', key=abs, ascending=False).head(10)  # Top 10 contributors
-                
-                # Display bar chart for SHAP contributions
-                st.write("#### Top Words Contributing to the Prediction")
-                fig, ax = plt.subplots()
-                shap_df.plot.barh(x='Token', y='Contribution', 
-                                  color=shap_df['Direction'].map({"Spam": "red", "Not Spam": "green"}), ax=ax)
-                plt.title("SHAP Contributions")
-                plt.xlabel("SHAP Value")
-                plt.ylabel("Token")
-                st.pyplot(fig)
-                
-                # Detailed explanation in text
-                st.write("#### Explanation Summary")
-                for _, row in shap_df.iterrows():
-                    token, contribution, direction = row['Token'], row['Contribution'], row['Direction']
-                    st.markdown(f"- *{token}*: {direction} ({'+' if contribution > 0 else ''}{contribution:.2f})")
-                
-                # Interactive SHAP HTML visualization
-                st.write("#### Detailed SHAP Text Explanation")
-                shap_html = shap.plots.text(shap_values[0], display=False)  # Generate SHAP text as HTML
-                st.components.v1.html(shap_html, height=400)  # Embed the HTML in Streamlit
-                    
-            except Exception as e:
-                st.error(f"❌ Error generating SHAP explanation: {e}")
 
 # Tab 2: CSV File Upload
 with tab2:
@@ -174,7 +139,7 @@ with tab3:
             try:
                 image = Image.open(image_file)
                 st.image(image, caption=image_file.name)
-                extracted_text = pytesseract.image_to_string(image)
+                extracted_text = extract_text_from_image(image)
                 if extracted_text.strip():
                     transformed_text = transform_text(extracted_text)
                     vector_input = tfidf.transform([transformed_text])
