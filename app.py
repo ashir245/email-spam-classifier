@@ -3,12 +3,12 @@ import pickle
 import pandas as pd
 from nltk.stem.porter import PorterStemmer
 from PIL import Image
-import easyocr
 import numpy as np
 import logging
 import matplotlib.pyplot as plt
 import nltk
 from nltk.corpus import stopwords
+from google.cloud import vision
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -19,15 +19,6 @@ nltk.download('punkt')
 
 # Initialize the stemmer
 ps = PorterStemmer()
-
-# Initialize EasyOCR globally
-try:
-    logging.info("Initializing EasyOCR...")
-    reader = easyocr.Reader(['en'], gpu=False)  # Use CPU for OCR
-    logging.info("EasyOCR initialized successfully.")
-except Exception as e:
-    logging.error(f"Failed to initialize EasyOCR: {e}")
-    reader = None
 
 # Custom CSS for styling
 st.markdown("""
@@ -55,14 +46,15 @@ def transform_text(text):
     words = [ps.stem(word) for word in words]
     return " ".join(words)
 
-# Function to extract text from an image using EasyOCR
+# Function to extract text using Google Vision API
 def extract_text_from_image(image):
     try:
-        if reader is None:
-            return "EasyOCR is not initialized."
-        image_array = np.array(image)
-        results = reader.readtext(image_array, detail=0)
-        return " ".join(results)
+        client = vision.ImageAnnotatorClient()
+        content = image.tobytes()
+        image = vision.Image(content=content)
+        response = client.text_detection(image=image)
+        texts = response.text_annotations
+        return texts[0].description if texts else ""
     except Exception as e:
         logging.error(f"Error during OCR: {e}")
         return ""
