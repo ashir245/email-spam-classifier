@@ -10,10 +10,10 @@ import easyocr
 import shap
 import matplotlib.pyplot as plt
 
-# Set NLTK data path and download necessary resources
+# Ensure necessary NLTK resources are downloaded
 nltk.data.path.append('/tmp')
-nltk.download('stopwords', download_dir='/tmp')
 nltk.download('punkt', download_dir='/tmp')
+nltk.download('stopwords', download_dir='/tmp')
 
 # Initialize the stemmer
 ps = PorterStemmer()
@@ -37,10 +37,10 @@ st.markdown("""
 # Function to preprocess and transform text
 def transform_text(text):
     text = text.lower().replace("\n", " ").strip()
-    text = nltk.word_tokenize(text)
-    text = [word for word in text if word.isalnum()]
-    text = [word for word in text if word not in stopwords.words('english')]
-    text = [ps.stem(word) for word in text]
+    text = nltk.word_tokenize(text)  # Tokenize text
+    text = [word for word in text if word.isalnum()]  # Remove non-alphanumeric characters
+    text = [word for word in text if word not in stopwords.words('english')]  # Remove stopwords
+    text = [ps.stem(word) for word in text]  # Stem the words
     return " ".join(text)
 
 # Load the TF-IDF vectorizer and classifier model
