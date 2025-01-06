@@ -9,10 +9,23 @@ from PIL import Image
 import pytesseract
 import shap
 import matplotlib.pyplot as plt
+import os
 
-# Download NLTK data files
-nltk.download('stopwords')
-nltk.download('punkt')
+# Set the NLTK data path to a custom directory within your project
+nltk.data.path.append(os.path.join(os.getcwd(), 'nltk_data'))
+
+# Download necessary NLTK resources to this custom directory if not already downloaded
+try:
+    nltk.data.find('tokenizers/punkt')
+except LookupError:
+    print("Punkt tokenizer not found. Downloading...")
+    nltk.download('punkt', download_dir=os.path.join(os.getcwd(), 'nltk_data'))
+
+try:
+    nltk.data.find('corpora/stopwords')
+except LookupError:
+    print("Stopwords not found. Downloading...")
+    nltk.download('stopwords', download_dir=os.path.join(os.getcwd(), 'nltk_data'))
 
 # Initialize the stemmer
 ps = PorterStemmer()
