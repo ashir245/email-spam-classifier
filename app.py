@@ -60,42 +60,61 @@ except FileNotFoundError:
     st.error("❌ Model or vectorizer file not found. Please ensure the files are in the correct location.")
     st.stop()
 
-# Initialize SHAP explainer with increased max_evals
+# Initialize SHAP explainer
 def predict_fn(texts):
     transformed_texts = tfidf.transform(texts)
     return model.predict_proba(transformed_texts)
 
 explainer = shap.Explainer(predict_fn, tfidf.transform, max_evals=6001)
 
-# SHAP Explanation Option (for text only)
-if st.checkbox("Show Explanation", key='shap_checkbox'):
-    if not input_sms.strip():
-        st.warning("⚠️ Please enter a message to display the explanation.")
-    else:
-        st.write("### SHAP Explanation")
-        try:
-            # Ensure the text is transformed
-            transformed_sms = transform_text(input_sms)
-            vector_input = tfidf.transform([transformed_sms])
-            
-            # Generate SHAP values
-            shap_values = explainer(vector_input)
+# Streamlit App
+st.title("📧 Email/SMS Spam Classifier")
+st.write("### 🔍 Detect Spam in Text, CSV Files, or Images")
 
-            # Display SHAP contributions
-            st.write("#### Contribution of Words to Prediction")
-            fig, ax = plt.subplots(figsize=(10, 5))
-            shap.summary_plot(
-                shap_values,
-                vector_input.toarray(),
-                feature_names=tfidf.get_feature_names_out(),
-                plot_type="bar",
-                show=False
-            )
-            st.pyplot(fig)
+tab1, tab2, tab3 = st.tabs(["📝 Text Input", "📂 CSV File Upload", "🖼️ Image Upload"])
 
-        except Exception as e:
-            st.error(f"❌ Error generating SHAP explanation: {e}")
+# Tab 1: Text Input
+with tab1:
+    st.write("### Enter Message")
+    input_sms = st.text_area("Type your message below:", placeholder="e.g., Congratulations! You've won a $1,000 gift card.")
+    
+    if st.button('Classify Text', key='text'):
+        if input_sms.strip() == "":
+            st.warning("⚠️ Please enter a message to classify.")
+        else:
+            with st.spinner("🔄 Processing your message..."):
+                # Preprocess and classify
+                transformed_sms = transform_text(input_sms)
+                vector_input = tfidf.transform([transformed_sms])
+                result = model.predict(vector_input)[0]
+                st.success("✅ Not Spam" if result == 0 else "🚨 Spam")
+                
+    # SHAP Explanation Option (for text only)
+    if st.checkbox("Show Explanation", key='shap_checkbox'):
+        if not input_sms.strip():
+            st.warning("⚠️ Please enter a message to display the explanation.")
+        else:
+            st.write("### SHAP Explanation")
+            try:
+                # Generate SHAP values
+                transformed_sms = transform_text(input_sms)
+                vector_input = tfidf.transform([transformed_sms])
+                shap_values = explainer(vector_input)
 
+                # Display SHAP contributions
+                st.write("#### Contribution of Words to Prediction")
+                fig, ax = plt.subplots(figsize=(10, 5))
+                shap.summary_plot(
+                    shap_values,
+                    vector_input.toarray(),
+                    feature_names=tfidf.get_feature_names_out(),
+                    plot_type="bar",
+                    show=False
+                )
+                st.pyplot(fig)
+
+            except Exception as e:
+                st.error(f"❌ Error generating SHAP explanation: {e}")
 
 # Tab 2: CSV File Upload
 with tab2:
