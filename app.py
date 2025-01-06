@@ -89,25 +89,36 @@ with tab1:
                 result = model.predict(vector_input)[0]
                 st.success("✅ Not Spam" if result == 0 else "🚨 Spam")
                 
-    # SHAP Explanation Option (for text only)
-    if st.checkbox("Show Explanation", key='shap_checkbox'):
-        if not input_sms.strip():
-            st.warning("⚠️ Please enter a message to display the explanation.")
-        else:
-            st.write("### SHAP Explanation")
-            try:
-                # Generate SHAP values
-                vector_input = tfidf.transform([transformed_sms])
-                shap_values = explainer(vector_input)
+    
+         # SHAP Explanation Option (for text only)
+if st.checkbox("Show Explanation", key='shap_checkbox'):
+    if not input_sms.strip():
+        st.warning("⚠️ Please enter a message to display the explanation.")
+    else:
+        st.write("### SHAP Explanation")
+        try:
+            # Ensure the text is transformed
+            transformed_sms = transform_text(input_sms)
+            vector_input = tfidf.transform([transformed_sms])
+            
+            # Generate SHAP values
+            shap_values = explainer(vector_input)
 
-                # Display SHAP contributions
-                st.write("#### Contribution of Words to Prediction")
-                fig, ax = plt.subplots(figsize=(10, 5))
-                shap.summary_plot(shap_values, vector_input.toarray(), feature_names=tfidf.get_feature_names_out(), plot_type="bar", show=False)
-                st.pyplot(fig)
+            # Display SHAP contributions
+            st.write("#### Contribution of Words to Prediction")
+            fig, ax = plt.subplots(figsize=(10, 5))
+            shap.summary_plot(
+                shap_values,
+                vector_input.toarray(),
+                feature_names=tfidf.get_feature_names_out(),
+                plot_type="bar",
+                show=False
+            )
+            st.pyplot(fig)
 
-            except Exception as e:
-                st.error(f"❌ Error generating SHAP explanation: {e}")
+        except Exception as e:
+            st.error(f"❌ Error generating SHAP explanation: {e}")
+
 
 # Tab 2: CSV File Upload
 with tab2:
