@@ -38,7 +38,9 @@ st.markdown("""
 
 # Function to preprocess and transform text
 def transform_text(text):
-    if not isinstance(text, str):  # Ensure the input is a string
+    if isinstance(text, (bool, np.bool_)):  # Handle boolean inputs
+        text = str(text)
+    elif not isinstance(text, str):  # Convert other non-strings to string
         text = str(text)
     text = text.lower().replace("\n", " ").strip()
     words = text.split()
