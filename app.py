@@ -18,7 +18,7 @@ nltk.download('punkt')
 ps = PorterStemmer()
 
 # Initialize EasyOCR Reader
-reader = easyocr.Reader(['en'])  # Specify language(s)
+reader = easyocr.Reader(['en'])
 
 # Custom CSS for background color and styling
 st.markdown("""
@@ -39,17 +39,17 @@ st.markdown("""
 # Function to preprocess and transform text
 def transform_text(text):
     text = text.lower().replace("\n", " ").strip()
-    words = text.split()  # Split by spaces
-    words = [word for word in words if word.isalnum()]  # Remove non-alphanumeric words
+    words = text.split()
+    words = [word for word in words if word.isalnum()]
     custom_stopwords = set(["the", "and", "is", "in", "to", "it", "of", "for", "on", "this", "a"])
-    words = [word for word in words if word not in custom_stopwords]  # Remove stopwords
-    words = [ps.stem(word) for word in words]  # Perform stemming
+    words = [word for word in words if word not in custom_stopwords]
+    words = [ps.stem(word) for word in words]
     return " ".join(words)
 
 # Extract text using EasyOCR
 def extract_text_from_image(image):
     image_array = np.array(image)
-    results = reader.readtext(image_array, detail=0)  # Extract text without bounding boxes
+    results = reader.readtext(image_array, detail=0)
     return " ".join(results)
 
 # Load the TF-IDF vectorizer and classifier model
@@ -65,13 +65,13 @@ def predict_fn(texts):
     transformed_texts = tfidf.transform(texts)
     return model.predict_proba(transformed_texts)
 
-def tfidf_transform_wrapper(texts):
+def tfidf_transform_wrapper(texts, *args, **kwargs):
     return tfidf.transform(texts)
 
 # Dynamically calculate max_evals
 num_features = len(tfidf.get_feature_names_out())
 min_evals = 2 * num_features + 1
-max_evals = min(min_evals, 10000)  # Cap max_evals for performance
+max_evals = min(min_evals, 10000)
 explainer = shap.Explainer(predict_fn, tfidf_transform_wrapper, max_evals=max_evals)
 
 # Streamlit App
@@ -109,5 +109,3 @@ with tab1:
                 st.pyplot(fig)
             except Exception as e:
                 st.error(f"❌ Error generating SHAP explanation: {e}")
-
-# Other tabs (CSV and Image Upload) remain unchanged for brevity
