@@ -62,9 +62,9 @@ except FileNotFoundError:
 
 # Provide a small sample dataset for SHAP background data
 sample_texts = ["This is a spam message", "Hello, how are you?", "Win a free car today!", "This is not spam"]
-background_data = tfidf.transform([transform_text(text) for text in sample_texts])
+background_data = tfidf.transform([transform_text(text) for text in sample_texts]).toarray()  # Convert to dense array
 
-# Initialize SHAP explainer with a masker for sparse matrices
+# Initialize SHAP explainer with a masker for the correct background shape
 masker = shap.maskers.Independent(background_data)
 explainer = shap.Explainer(model.predict_proba, masker)
 
@@ -85,7 +85,7 @@ with tab1:
         else:
             with st.spinner("🔄 Processing your message..."):
                 transformed_sms = transform_text(input_sms)
-                vector_input = tfidf.transform([transformed_sms])
+                vector_input = tfidf.transform([transformed_sms]).toarray()  # Convert to dense array
                 result = model.predict(vector_input)[0]
                 st.success("✅ Not Spam" if result == 0 else "🚨 Spam")
                 
@@ -97,7 +97,7 @@ with tab1:
             st.write("### SHAP Explanation")
             try:
                 transformed_sms = transform_text(input_sms)
-                vector_input = tfidf.transform([transformed_sms])
+                vector_input = tfidf.transform([transformed_sms]).toarray()  # Convert to dense array
 
                 # Generate SHAP values
                 shap_values = explainer(vector_input)
@@ -107,7 +107,7 @@ with tab1:
                 fig, ax = plt.subplots(figsize=(10, 5))
                 shap.summary_plot(
                     shap_values,
-                    vector_input.toarray(),
+                    vector_input,
                     feature_names=tfidf.get_feature_names_out(),
                     plot_type="bar",
                     show=False
@@ -131,7 +131,7 @@ with tab2:
                     continue
                 with st.spinner(f"🔄 Processing '{uploaded_file.name}'..."):
                     data['transformed_message'] = data['message'].apply(transform_text)
-                    vector_input = tfidf.transform(data['transformed_message'])
+                    vector_input = tfidf.transform(data['transformed_message']).toarray()
                     predictions = model.predict(vector_input)
                     data['classification'] = pd.Series(predictions).map({1: "Spam", 0: "Not Spam"})
                     st.write(data[['message', 'classification']])
@@ -157,7 +157,7 @@ with tab3:
                 extracted_text = extract_text_from_image(image)
                 if extracted_text.strip():
                     transformed_text = transform_text(extracted_text)
-                    vector_input = tfidf.transform([transformed_text])
+                    vector_input = tfidf.transform([transformed_text]).toarray()
                     prediction = model.predict(vector_input)[0]
                     st.write(f"Classification: {'✅ Not Spam' if prediction == 0 else '🚨 Spam'}")
                 else:
