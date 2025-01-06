@@ -60,37 +60,14 @@ except FileNotFoundError:
     st.error("❌ Model or vectorizer file not found. Please ensure the files are in the correct location.")
     st.stop()
 
-# Initialize SHAP explainer
+# Initialize SHAP explainer with increased max_evals
 def predict_fn(texts):
     transformed_texts = tfidf.transform(texts)
     return model.predict_proba(transformed_texts)
 
-explainer = shap.Explainer(predict_fn, tfidf.transform)
+explainer = shap.Explainer(predict_fn, tfidf.transform, max_evals=6001)
 
-# Streamlit App
-st.title("📧 Email/SMS Spam Classifier")
-st.write("### 🔍 Detect Spam in Text, CSV Files, or Images")
-
-tab1, tab2, tab3 = st.tabs(["📝 Text Input", "📂 CSV File Upload", "🖼️ Image Upload"])
-
-# Tab 1: Text Input
-with tab1:
-    st.write("### Enter Message")
-    input_sms = st.text_area("Type your message below:", placeholder="e.g., Congratulations! You've won a $1,000 gift card.")
-    
-    if st.button('Classify Text', key='text'):
-        if input_sms.strip() == "":
-            st.warning("⚠️ Please enter a message to classify.")
-        else:
-            with st.spinner("🔄 Processing your message..."):
-                # Preprocess and classify
-                transformed_sms = transform_text(input_sms)
-                vector_input = tfidf.transform([transformed_sms])
-                result = model.predict(vector_input)[0]
-                st.success("✅ Not Spam" if result == 0 else "🚨 Spam")
-                
-    
-         # SHAP Explanation Option (for text only)
+# SHAP Explanation Option (for text only)
 if st.checkbox("Show Explanation", key='shap_checkbox'):
     if not input_sms.strip():
         st.warning("⚠️ Please enter a message to display the explanation.")
