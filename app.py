@@ -1,19 +1,12 @@
 import streamlit as st
 import pickle
-import string
-import nltk
 import pandas as pd
-from nltk.corpus import stopwords
 from nltk.stem.porter import PorterStemmer
 from PIL import Image
-import pytesseract
-import shap
+import easyocr
 import numpy as np
+import shap
 import matplotlib.pyplot as plt
-
-# Download NLTK data files
-nltk.download('stopwords')
-nltk.download('punkt')
 
 # Initialize the stemmer
 ps = PorterStemmer()
@@ -37,11 +30,12 @@ st.markdown("""
 # Function to preprocess and transform text
 def transform_text(text):
     text = text.lower().replace("\n", " ").strip()
-    text = nltk.word_tokenize(text)
-    text = [word for word in text if word.isalnum()]
-    text = [word for word in text if word not in stopwords.words('english')]
-    text = [ps.stem(word) for word in text]
-    return " ".join(text)
+    words = text.split()  # Split by spaces
+    words = [word for word in words if word.isalnum()]  # Remove non-alphanumeric words
+    custom_stopwords = set(["the", "and", "is", "in", "to", "it", "of", "for", "on", "this", "a"])
+    words = [word for word in words if word not in custom_stopwords]  # Remove stopwords
+    words = [ps.stem(word) for word in words]  # Perform stemming
+    return " ".join(words)
 
 # Load the TF-IDF vectorizer and classifier model
 try:
@@ -51,11 +45,12 @@ except FileNotFoundError:
     st.error("❌ Model or vectorizer file not found. Please ensure the files are in the correct location.")
     st.stop()
 
-# Initialize SHAP KernelExplainer
+# Predict function for SHAP
 def predict_fn(texts):
     transformed_texts = tfidf.transform(texts)
     return model.predict_proba(transformed_texts)
 
+# Initialize SHAP KernelExplainer
 explainer = shap.KernelExplainer(predict_fn, np.zeros((1, tfidf.transform([""]).shape[1])))
 
 # Streamlit App
@@ -68,7 +63,6 @@ tab1, tab2, tab3 = st.tabs(["📝 Text Input", "📂 CSV File Upload", "🖼️ 
 with tab1:
     st.write("### Enter Message")
     input_sms = st.text_area("Type your message below:", placeholder="e.g., Congratulations! You've won a $1,000 gift card.")
-    
     if st.button('Classify Text', key='text'):
         if input_sms.strip() == "":
             st.warning("⚠️ Please enter a message to classify.")
@@ -78,26 +72,19 @@ with tab1:
                 transformed_sms = transform_text(input_sms)
                 vector_input = tfidf.transform([transformed_sms])
                 result = model.predict(vector_input)[0]
-                
-                # Display classification result
                 st.success("✅ Not Spam" if result == 0 else "🚨 Spam")
                 
-    # SHAP Explanation Option (for text only)
-    if st.checkbox("Show Explanation", key='shap_checkbox'):
-        if not input_sms.strip():
-            st.warning("⚠️ Please enter a message to display the explanation.")
-        else:
-            st.write("### SHAP Explanation")
-            try:
-                # Generate SHAP explanation
-                vector_input = tfidf.transform([transformed_sms])
-                shap_values = explainer.shap_values(vector_input, nsamples=100)
+                # Add SHAP explanation
+                st.write("### SHAP Explanation")
+                try:
+                    # Generate SHAP values
+                    shap_values = explainer.shap_values(vector_input, nsamples=100)
 
-                # Display SHAP contributions
-                st.write("#### Contribution of Words to Prediction")
-                fig, ax = plt.subplots(figsize=(10, 5))
-                shap.summary_plot(shap_values, vector_input.toarray(), feature_names=tfidf.get_feature_names_out(), plot_type="bar", show=False)
-                st.pyplot(fig)
+                    # Display SHAP contributions
+                    st.write("#### Contribution of Words to Prediction")
+                    fig, ax = plt.subplots(figsize=(10, 5))
+                    shap.summary_plot(shap_values, vector_input.toarray(), feature_names=tfidf.get_feature_names_out(), plot_type="bar", show=False)
+                    st.pyplot(fig)
 
-            except Exception as e:
-                st.error(f"❌ Error generating SHAP explanation: {e}")
+                except Exception as e:
+                    st.error(f"❌ Error generating SHAP explanation: {e}")
