@@ -105,12 +105,11 @@ with tab1:
                 # Display SHAP contributions
                 st.write("#### Contribution of Words to Prediction")
                 fig, ax = plt.subplots(figsize=(10, 5))
-                shap.summary_plot(
-                    shap_values,
-                    vector_input,
-                    feature_names=tfidf.get_feature_names_out(),
-                    plot_type="bar",
-                    show=False
+                shap.bar_plot(
+                    shap_values.values[0],  # SHAP values for the instance
+                    feature_names=tfidf.get_feature_names_out(),  # Feature names from the vectorizer
+                    max_display=10,  # Display top 10 features
+                    show=False  # Prevent immediate display by SHAP
                 )
                 st.pyplot(fig)
 
