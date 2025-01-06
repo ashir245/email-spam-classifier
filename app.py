@@ -3,15 +3,15 @@ import pickle
 import pandas as pd
 from nltk.stem.porter import PorterStemmer
 from PIL import Image
-from paddleocr import PaddleOCR
+import easyocr
 import shap
 import matplotlib.pyplot as plt
 
 # Initialize the stemmer
 ps = PorterStemmer()
 
-# Initialize PaddleOCR
-ocr = PaddleOCR(use_angle_cls=True, lang='en')
+# Initialize EasyOCR Reader
+reader = easyocr.Reader(['en'])  # Specify language(s)
 
 # Custom CSS for background color and styling
 st.markdown("""
@@ -49,11 +49,10 @@ def transform_text(text):
     
     return " ".join(words)
 
-# Extract text using PaddleOCR
+# Extract text using EasyOCR
 def extract_text_from_image(image):
-    results = ocr.ocr(image, cls=True)
-    extracted_text = " ".join([line[1][0] for line in results[0]])
-    return extracted_text
+    results = reader.readtext(image, detail=0)  # Extract text without bounding boxes
+    return " ".join(results)
 
 # Load the TF-IDF vectorizer and classifier model
 try:
