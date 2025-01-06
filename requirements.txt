@@ -5,3 +5,4 @@ pillow
 shap
 matplotlib
 easyocr
+torch
