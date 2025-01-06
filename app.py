@@ -5,9 +5,13 @@ from nltk.stem.porter import PorterStemmer
 from PIL import Image
 import easyocr
 import numpy as np
+import logging
 import matplotlib.pyplot as plt
 import nltk
 from nltk.corpus import stopwords
+
+# Configure logging
+logging.basicConfig(level=logging.INFO)
 
 # Download NLTK data files
 nltk.download('stopwords')
@@ -16,8 +20,14 @@ nltk.download('punkt')
 # Initialize the stemmer
 ps = PorterStemmer()
 
-# Initialize EasyOCR Reader
-reader = easyocr.Reader(['en'])
+# Initialize EasyOCR globally
+try:
+    logging.info("Initializing EasyOCR...")
+    reader = easyocr.Reader(['en'], gpu=False)  # Use CPU for OCR
+    logging.info("EasyOCR initialized successfully.")
+except Exception as e:
+    logging.error(f"Failed to initialize EasyOCR: {e}")
+    reader = None
 
 # Custom CSS for styling
 st.markdown("""
@@ -45,11 +55,17 @@ def transform_text(text):
     words = [ps.stem(word) for word in words]
     return " ".join(words)
 
-# Extract text using EasyOCR
+# Function to extract text from an image using EasyOCR
 def extract_text_from_image(image):
-    image_array = np.array(image)
-    results = reader.readtext(image_array, detail=0)
-    return " ".join(results)
+    try:
+        if reader is None:
+            return "EasyOCR is not initialized."
+        image_array = np.array(image)
+        results = reader.readtext(image_array, detail=0)
+        return " ".join(results)
+    except Exception as e:
+        logging.error(f"Error during OCR: {e}")
+        return ""
 
 # Load the TF-IDF vectorizer and classifier model
 try:
