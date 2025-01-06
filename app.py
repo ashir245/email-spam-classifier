@@ -10,28 +10,15 @@ import pytesseract
 import shap
 import matplotlib.pyplot as plt
 
-# Download NLTK data files
-nltk.download('stopwords')
-nltk.download('punkt')
+# Check and download NLTK data
+for resource in ['stopwords', 'punkt']:
+    try:
+        nltk.data.find(f'tokenizers/{resource}' if resource == 'punkt' else f'corpora/{resource}')
+    except LookupError:
+        nltk.download(resource)
 
 # Initialize the stemmer
 ps = PorterStemmer()
-
-# Custom CSS for background color and styling
-st.markdown("""
-    <style>
-    body {
-        background-color: #f0f8ff;
-        color: #333333;
-    }
-    .block-container {
-        padding: 1rem 2rem;
-        background-color: #ffffff;
-        border-radius: 10px;
-        box-shadow: 0px 4px 8px rgba(0, 0, 0, 0.1);
-    }
-    </style>
-    """, unsafe_allow_html=True)
 
 # Function to preprocess and transform text
 def transform_text(text):
@@ -73,91 +60,27 @@ with tab1:
             st.warning("⚠️ Please enter a message to classify.")
         else:
             with st.spinner("🔄 Processing your message..."):
-                # Preprocess and classify
                 transformed_sms = transform_text(input_sms)
                 vector_input = tfidf.transform([transformed_sms])
                 result = model.predict(vector_input)[0]
-                
-                # Display classification result
                 st.success("✅ Not Spam" if result == 0 else "🚨 Spam")
-                
-    # SHAP Explanation Option (for text only)
-    if st.checkbox("Show Explanation", key='shap_checkbox'):
-        if not input_sms.strip():
-            st.warning("⚠️ Please enter a message to display the explanation.")
-        else:
-            st.write("### SHAP Explanation")
-            try:
-                # Generate SHAP explanation
-                shap_values = explainer([input_sms])
-                tokens = shap_values.data[0]  # Extract tokens
-                contributions = shap_values.values[0]  # SHAP contributions
-                
-                # Create a DataFrame for better organization
-                shap_df = pd.DataFrame({
-                    'Token': tokens,
-                    'Contribution': contributions
-                })
-                shap_df['Direction'] = shap_df['Contribution'].apply(lambda x: "Spam" if x > 0 else "Not Spam")
-                shap_df = shap_df.sort_values('Contribution', key=abs, ascending=False).head(10)  # Top 10 contributors
-                
-                # Display bar chart for SHAP contributions
-                st.write("#### Top Words Contributing to the Prediction")
-                fig, ax = plt.subplots()
-                shap_df.plot.barh(x='Token', y='Contribution', 
-                                  color=shap_df['Direction'].map({"Spam": "red", "Not Spam": "green"}), ax=ax)
-                plt.title("SHAP Contributions")
-                plt.xlabel("SHAP Value")
-                plt.ylabel("Token")
-                st.pyplot(fig)
-                
-                # Detailed explanation in text
-                st.write("#### Explanation Summary")
-                for _, row in shap_df.iterrows():
-                    token, contribution, direction = row['Token'], row['Contribution'], row['Direction']
-                    st.markdown(f"- *{token}*: {direction} ({'+' if contribution > 0 else ''}{contribution:.2f})")
-                
-                # Interactive SHAP HTML visualization
-                st.write("#### Detailed SHAP Text Explanation")
-                shap_html = shap.plots.text(shap_values[0], display=False)  # Generate SHAP text as HTML
-                st.components.v1.html(shap_html, height=400)  # Embed the HTML in Streamlit
-                    
-            except Exception as e:
-                st.error(f"❌ Error generating SHAP explanation: {e}")
 
 # Tab 2: CSV File Upload
 with tab2:
     st.write("### Upload CSV Files")
     uploaded_files = st.file_uploader("Upload one or more CSV files with a 'message' column.", type=["csv"], accept_multiple_files=True)
-    if uploaded_files and st.button('Classify CSVs', key='csv_batch'):
+    if uploaded_files:
         for uploaded_file in uploaded_files:
             try:
-                st.write(f"### Results for `{uploaded_file.name}`")
                 data = pd.read_csv(uploaded_file)
                 if 'message' not in data.columns:
                     st.warning(f"⚠️ No 'message' column in {uploaded_file.name}.")
                     continue
-                
-                with st.spinner(f"🔄 Processing '{uploaded_file.name}'..."):
-                    # Preprocess and classify
-                    data['transformed_message'] = data['message'].apply(transform_text)
-                    vector_input = tfidf.transform(data['transformed_message'])
-                    predictions = model.predict(vector_input)  # Returns a NumPy array
-                    
-                    # Convert predictions to a Pandas Series and map values
-                    data['classification'] = pd.Series(predictions).map({1: "Spam", 0: "Not Spam"})
-                    
-                    # Display results
-                    st.write(data[['message', 'classification']])
-                    
-                    # Allow CSV download
-                    csv = data[['message', 'classification']].to_csv(index=False)
-                    st.download_button(
-                        label=f"📥 Download Results for {uploaded_file.name}",
-                        data=csv,
-                        file_name=f"{uploaded_file.name.split('.')[0]}_results.csv",
-                        mime='text/csv'
-                    )
+                data['transformed_message'] = data['message'].apply(transform_text)
+                vector_input = tfidf.transform(data['transformed_message'])
+                predictions = model.predict(vector_input)
+                data['classification'] = ["Spam" if pred == 1 else "Not Spam" for pred in predictions]
+                st.write(data[['message', 'classification']])
             except Exception as e:
                 st.error(f"❌ Error with file '{uploaded_file.name}': {e}")
 
@@ -165,7 +88,7 @@ with tab2:
 with tab3:
     st.write("### Upload Images")
     uploaded_images = st.file_uploader("Upload images to extract and classify text.", type=["jpg", "png", "jpeg"], accept_multiple_files=True)
-    if uploaded_images and st.button('Classify Images', key='image_batch'):
+    if uploaded_images:
         for image_file in uploaded_images:
             try:
                 image = Image.open(image_file)
