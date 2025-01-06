@@ -60,12 +60,13 @@ except FileNotFoundError:
     st.error("❌ Model or vectorizer file not found. Please ensure the files are in the correct location.")
     st.stop()
 
-# Initialize SHAP explainer
+# Function for SHAP compatibility
 def predict_fn(texts):
     transformed_texts = tfidf.transform(texts)
     return model.predict_proba(transformed_texts)
 
-explainer = shap.Explainer(predict_fn, tfidf.transform, max_evals=6001)
+# Initialize SHAP explainer
+explainer = shap.Explainer(predict_fn, tfidf)
 
 # Streamlit App
 st.title("📧 Email/SMS Spam Classifier")
@@ -96,17 +97,17 @@ with tab1:
         else:
             st.write("### SHAP Explanation")
             try:
-                # Generate SHAP values
+                # Ensure the text is transformed
                 transformed_sms = transform_text(input_sms)
-                vector_input = tfidf.transform([transformed_sms])
-                shap_values = explainer(vector_input)
+                
+                # Generate SHAP values
+                shap_values = explainer([transformed_sms])
 
                 # Display SHAP contributions
                 st.write("#### Contribution of Words to Prediction")
                 fig, ax = plt.subplots(figsize=(10, 5))
                 shap.summary_plot(
                     shap_values,
-                    vector_input.toarray(),
                     feature_names=tfidf.get_feature_names_out(),
                     plot_type="bar",
                     show=False
