@@ -1,21 +1,21 @@
 import streamlit as st
 import pickle
-import string
 import nltk
 import pandas as pd
-from nltk.corpus import stopwords
 from nltk.stem.porter import PorterStemmer
 from PIL import Image
-import pytesseract
+import easyocr
 import shap
 import matplotlib.pyplot as plt
 
 # Download NLTK data files
-nltk.download('stopwords')
 nltk.download('punkt')
 
 # Initialize the stemmer
 ps = PorterStemmer()
+
+# Initialize EasyOCR Reader
+reader = easyocr.Reader(['en'])
 
 # Custom CSS for background color and styling
 st.markdown("""
@@ -33,12 +33,15 @@ st.markdown("""
     </style>
     """, unsafe_allow_html=True)
 
+# Custom stop words
+custom_stopwords = set(["the", "and", "is", "in", "to", "it", "of", "for", "on", "this", "a", "an", "with", "at", "by", "from", "as", "if"])
+
 # Function to preprocess and transform text
 def transform_text(text):
     text = text.lower().replace("\n", " ").strip()
     text = nltk.word_tokenize(text)
     text = [word for word in text if word.isalnum()]
-    text = [word for word in text if word not in stopwords.words('english')]
+    text = [word for word in text if word not in custom_stopwords]
     text = [ps.stem(word) for word in text]
     return " ".join(text)
 
@@ -88,8 +91,8 @@ with tab1:
             try:
                 # Generate SHAP explanation
                 shap_values = explainer([input_sms])
-                tokens = shap_values.data[0]  # Extract tokens
-                contributions = shap_values.values[0]  # SHAP contributions
+                tokens = shap_values.data[0]
+                contributions = shap_values.values[0]
                 
                 # Create a DataFrame for better organization
                 shap_df = pd.DataFrame({
@@ -97,7 +100,7 @@ with tab1:
                     'Contribution': contributions
                 })
                 shap_df['Direction'] = shap_df['Contribution'].apply(lambda x: "Spam" if x > 0 else "Not Spam")
-                shap_df = shap_df.sort_values('Contribution', key=abs, ascending=False).head(10)  # Top 10 contributors
+                shap_df = shap_df.sort_values('Contribution', key=abs, ascending=False).head(10)
                 
                 # Display bar chart for SHAP contributions
                 st.write("#### Top Words Contributing to the Prediction")
@@ -109,16 +112,16 @@ with tab1:
                 plt.ylabel("Token")
                 st.pyplot(fig)
                 
-                # Detailed explanation in text
+                # Explanation Summary
                 st.write("#### Explanation Summary")
                 for _, row in shap_df.iterrows():
                     token, contribution, direction = row['Token'], row['Contribution'], row['Direction']
                     st.markdown(f"- *{token}*: {direction} ({'+' if contribution > 0 else ''}{contribution:.2f})")
                 
-                # Interactive SHAP HTML visualization
+                # Detailed SHAP text visualization
                 st.write("#### Detailed SHAP Text Explanation")
-                shap_html = shap.plots.text(shap_values[0], display=False)  # Generate SHAP text as HTML
-                st.components.v1.html(shap_html, height=400)  # Embed the HTML in Streamlit
+                shap_html = shap.plots.text(shap_values[0], display=False)
+                st.components.v1.html(shap_html, height=400)
                     
             except Exception as e:
                 st.error(f"❌ Error generating SHAP explanation: {e}")
@@ -140,9 +143,7 @@ with tab2:
                     # Preprocess and classify
                     data['transformed_message'] = data['message'].apply(transform_text)
                     vector_input = tfidf.transform(data['transformed_message'])
-                    predictions = model.predict(vector_input)  # Returns a NumPy array
-                    
-                    # Convert predictions to a Pandas Series and map values
+                    predictions = model.predict(vector_input)
                     data['classification'] = pd.Series(predictions).map({1: "Spam", 0: "Not Spam"})
                     
                     # Display results
@@ -168,7 +169,8 @@ with tab3:
             try:
                 image = Image.open(image_file)
                 st.image(image, caption=image_file.name)
-                extracted_text = pytesseract.image_to_string(image)
+                extracted_text = reader.readtext(image, detail=0)
+                extracted_text = " ".join(extracted_text)
                 if extracted_text.strip():
                     transformed_text = transform_text(extracted_text)
                     vector_input = tfidf.transform([transformed_text])
