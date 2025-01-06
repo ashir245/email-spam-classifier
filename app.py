@@ -64,13 +64,9 @@ except FileNotFoundError:
 sample_texts = ["This is a spam message", "Hello, how are you?", "Win a free car today!", "This is not spam"]
 background_data = tfidf.transform([transform_text(text) for text in sample_texts])
 
-# Function for SHAP compatibility
-def predict_fn(texts):
-    transformed_texts = tfidf.transform(texts)
-    return model.predict_proba(transformed_texts)
-
-# Initialize SHAP explainer with background data
-explainer = shap.Explainer(predict_fn, background_data, max_evals=6001)
+# Initialize SHAP explainer with a masker for sparse matrices
+masker = shap.maskers.Independent(background_data)
+explainer = shap.Explainer(model.predict_proba, masker)
 
 # Streamlit App
 st.title("📧 Email/SMS Spam Classifier")
