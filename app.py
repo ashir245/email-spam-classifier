@@ -1,182 +1,101 @@
 import streamlit as st
 import pickle
-import nltk
 import pandas as pd
 from nltk.stem.porter import PorterStemmer
 from PIL import Image
 import easyocr
+import numpy as np
 import shap
 import matplotlib.pyplot as plt
+import nltk
 
 # Download NLTK data files
+nltk.download('stopwords')
 nltk.download('punkt')
 
-# Initialize the stemmer
+# Initialize components
 ps = PorterStemmer()
-
-# Initialize EasyOCR Reader
 reader = easyocr.Reader(['en'])
 
-# Custom CSS for background color and styling
-st.markdown("""
-    <style>
-    body {
-        background-color: #f0f8ff;
-        color: #333333;
-    }
-    .block-container {
-        padding: 1rem 2rem;
-        background-color: #ffffff;
-        border-radius: 10px;
-        box-shadow: 0px 4px 8px rgba(0, 0, 0, 0.1);
-    }
-    </style>
-    """, unsafe_allow_html=True)
+# Custom stopwords
+custom_stopwords = {"the", "and", "is", "in", "to", "it", "of", "for", "on", "this", "a"}
 
-# Custom stop words
-custom_stopwords = set(["the", "and", "is", "in", "to", "it", "of", "for", "on", "this", "a", "an", "with", "at", "by", "from", "as", "if"])
-
-# Function to preprocess and transform text
+# Preprocessing Function
 def transform_text(text):
-    text = text.lower().replace("\n", " ").strip()
-    text = nltk.word_tokenize(text)
-    text = [word for word in text if word.isalnum()]
-    text = [word for word in text if word not in custom_stopwords]
-    text = [ps.stem(word) for word in text]
-    return " ".join(text)
+    text = text.lower().strip()
+    words = [word for word in text.split() if word.isalnum()]
+    words = [word for word in words if word not in custom_stopwords]
+    return " ".join(ps.stem(word) for word in words)
 
-# Load the TF-IDF vectorizer and classifier model
+# EasyOCR Text Extraction
+def extract_text_from_image(image):
+    return " ".join(reader.readtext(np.array(image), detail=0))
+
+# Load models
 try:
     tfidf = pickle.load(open('vectorizer.pkl', 'rb'))
     model = pickle.load(open('model.pkl', 'rb'))
 except FileNotFoundError:
-    st.error("❌ Model or vectorizer file not found. Please ensure the files are in the correct location.")
+    st.error("Model or vectorizer file not found.")
     st.stop()
 
-# Initialize SHAP explainer
+# SHAP Explainer
 def predict_fn(texts):
-    transformed_texts = tfidf.transform(texts)
-    return model.predict(transformed_texts)
+    return model.predict_proba(tfidf.transform(texts))
 
 explainer = shap.Explainer(predict_fn, shap.maskers.Text())
 
 # Streamlit App
 st.title("📧 Email/SMS Spam Classifier")
-st.write("### 🔍 Detect Spam in Text, CSV Files, or Images")
-
-tab1, tab2, tab3 = st.tabs(["📝 Text Input", "📂 CSV File Upload", "🖼️ Image Upload"])
+tabs = st.tabs(["📝 Text Input", "📂 CSV Upload", "🖼️ Image Upload"])
 
 # Tab 1: Text Input
-with tab1:
-    st.write("### Enter Message")
-    input_sms = st.text_area("Type your message below:", placeholder="e.g., Congratulations! You've won a $1,000 gift card.")
-    
-    if st.button('Classify Text', key='text'):
-        if input_sms.strip() == "":
-            st.warning("⚠️ Please enter a message to classify.")
+with tabs[0]:
+    input_sms = st.text_area("Enter a message:")
+    if st.button("Classify"):
+        if input_sms.strip():
+            transformed = transform_text(input_sms)
+            result = model.predict(tfidf.transform([transformed]))[0]
+            st.success("✅ Not Spam" if result == 0 else "🚨 Spam")
         else:
-            with st.spinner("🔄 Processing your message..."):
-                # Preprocess and classify
-                transformed_sms = transform_text(input_sms)
-                vector_input = tfidf.transform([transformed_sms])
-                result = model.predict(vector_input)[0]
-                st.success("✅ Not Spam" if result == 0 else "🚨 Spam")
-                
-    # SHAP Explanation Option (for text only)
-    if st.checkbox("Show Explanation", key='shap_checkbox'):
-        if not input_sms.strip():
-            st.warning("⚠️ Please enter a message to display the explanation.")
-        else:
-            st.write("### SHAP Explanation")
-            try:
-                # Generate SHAP explanation
-                shap_values = explainer([input_sms])
-                tokens = shap_values.data[0]
-                contributions = shap_values.values[0]
-                
-                # Create a DataFrame for better organization
-                shap_df = pd.DataFrame({
-                    'Token': tokens,
-                    'Contribution': contributions
-                })
-                shap_df['Direction'] = shap_df['Contribution'].apply(lambda x: "Spam" if x > 0 else "Not Spam")
-                shap_df = shap_df.sort_values('Contribution', key=abs, ascending=False).head(10)
-                
-                # Display bar chart for SHAP contributions
-                st.write("#### Top Words Contributing to the Prediction")
-                fig, ax = plt.subplots()
-                shap_df.plot.barh(x='Token', y='Contribution', 
-                                  color=shap_df['Direction'].map({"Spam": "red", "Not Spam": "green"}), ax=ax)
-                plt.title("SHAP Contributions")
-                plt.xlabel("SHAP Value")
-                plt.ylabel("Token")
-                st.pyplot(fig)
-                
-                # Explanation Summary
-                st.write("#### Explanation Summary")
-                for _, row in shap_df.iterrows():
-                    token, contribution, direction = row['Token'], row['Contribution'], row['Direction']
-                    st.markdown(f"- *{token}*: {direction} ({'+' if contribution > 0 else ''}{contribution:.2f})")
-                
-                # Detailed SHAP text visualization
-                st.write("#### Detailed SHAP Text Explanation")
-                shap_html = shap.plots.text(shap_values[0], display=False)
-                st.components.v1.html(shap_html, height=400)
-                    
-            except Exception as e:
-                st.error(f"❌ Error generating SHAP explanation: {e}")
+            st.warning("Please enter a message.")
 
-# Tab 2: CSV File Upload
-with tab2:
-    st.write("### Upload CSV Files")
-    uploaded_files = st.file_uploader("Upload one or more CSV files with a 'message' column.", type=["csv"], accept_multiple_files=True)
-    if uploaded_files and st.button('Classify CSVs', key='csv_batch'):
-        for uploaded_file in uploaded_files:
-            try:
-                st.write(f"### Results for `{uploaded_file.name}`")
-                data = pd.read_csv(uploaded_file)
-                if 'message' not in data.columns:
-                    st.warning(f"⚠️ No 'message' column in {uploaded_file.name}.")
-                    continue
-                
-                with st.spinner(f"🔄 Processing '{uploaded_file.name}'..."):
-                    # Preprocess and classify
-                    data['transformed_message'] = data['message'].apply(transform_text)
-                    vector_input = tfidf.transform(data['transformed_message'])
-                    predictions = model.predict(vector_input)
-                    data['classification'] = pd.Series(predictions).map({1: "Spam", 0: "Not Spam"})
-                    
-                    # Display results
-                    st.write(data[['message', 'classification']])
-                    
-                    # Allow CSV download
-                    csv = data[['message', 'classification']].to_csv(index=False)
-                    st.download_button(
-                        label=f"📥 Download Results for {uploaded_file.name}",
-                        data=csv,
-                        file_name=f"{uploaded_file.name.split('.')[0]}_results.csv",
-                        mime='text/csv'
-                    )
-            except Exception as e:
-                st.error(f"❌ Error with file '{uploaded_file.name}': {e}")
+    if st.checkbox("Show Explanation"):
+        try:
+            shap_values = explainer([input_sms])
+            st.write("### SHAP Explanation")
+            shap.plots.text(shap_values[0])
+        except Exception as e:
+            st.error(f"SHAP Error: {e}")
+
+# Tab 2: CSV Upload
+with tabs[1]:
+    uploaded_file = st.file_uploader("Upload CSV with a 'message' column", type="csv")
+    if uploaded_file:
+        data = pd.read_csv(uploaded_file)
+        if 'message' not in data.columns:
+            st.warning("The uploaded file must contain a 'message' column.")
+        else:
+            data['transformed'] = data['message'].fillna("").apply(transform_text)
+            data['classification'] = model.predict(tfidf.transform(data['transformed']))
+            st.write(data[['message', 'classification']].rename(columns={'classification': 'Spam/Not Spam'}))
+            st.download_button(
+                "Download Results",
+                data.to_csv(index=False),
+                file_name="classified_messages.csv"
+            )
 
 # Tab 3: Image Upload
-with tab3:
-    st.write("### Upload Images")
-    uploaded_images = st.file_uploader("Upload images to extract and classify text.", type=["jpg", "png", "jpeg"], accept_multiple_files=True)
-    if uploaded_images and st.button('Classify Images', key='image_batch'):
-        for image_file in uploaded_images:
-            try:
-                image = Image.open(image_file)
-                st.image(image, caption=image_file.name)
-                extracted_text = reader.readtext(image, detail=0)
-                extracted_text = " ".join(extracted_text)
-                if extracted_text.strip():
-                    transformed_text = transform_text(extracted_text)
-                    vector_input = tfidf.transform([transformed_text])
-                    prediction = model.predict(vector_input)[0]
-                    st.write(f"Classification: {'✅ Not Spam' if prediction == 0 else '🚨 Spam'}")
-                else:
-                    st.warning(f"⚠️ No text found in {image_file.name}.")
-            except Exception as e:
-                st.error(f"❌ Error with image {image_file.name}: {e}")
+with tabs[2]:
+    uploaded_images = st.file_uploader("Upload Images", type=["jpg", "jpeg", "png"], accept_multiple_files=True)
+    if uploaded_images:
+        for img_file in uploaded_images:
+            image = Image.open(img_file)
+            st.image(image, caption=img_file.name)
+            extracted_text = extract_text_from_image(image)
+            if extracted_text.strip():
+                transformed = transform_text(extracted_text)
+                prediction = model.predict(tfidf.transform([transformed]))[0]
+                st.write(f"Classification: {'✅ Not Spam' if prediction == 0 else '🚨 Spam'}")
+            else:
+                st.warning("No text detected in the image.")
