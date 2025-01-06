@@ -2,6 +2,7 @@ streamlit==1.41.1
 pandas==2.2.3
 nltk==3.9.1
 pillow==11.0.0
+pytesseract
 shap
 matplotlib
 scikit-learn==1.6.0
