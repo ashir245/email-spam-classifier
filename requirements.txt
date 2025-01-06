@@ -2,6 +2,6 @@ streamlit
 pandas
 nltk
 pillow
-pytesseract.pytesseract.tesseract_cmd = r'/usr/bin/tesseract'  # Adjust as necessary
+
 shap
 matplotlib
