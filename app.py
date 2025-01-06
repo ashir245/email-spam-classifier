@@ -65,7 +65,10 @@ def predict_fn(texts):
     transformed_texts = tfidf.transform(texts)
     return model.predict_proba(transformed_texts)
 
-explainer = shap.Explainer(predict_fn, tfidf.transform)
+# Dynamically calculate `max_evals` based on TF-IDF features
+num_features = len(tfidf.get_feature_names_out())
+max_evals = max(2 * num_features + 1, 1000)  # Ensure at least 1000 for small models
+explainer = shap.Explainer(predict_fn, tfidf.transform, max_evals=max_evals)
 
 # Streamlit App
 st.title("📧 Email/SMS Spam Classifier")
