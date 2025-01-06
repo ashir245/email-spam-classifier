@@ -48,11 +48,8 @@ except FileNotFoundError:
     st.error("❌ Model or vectorizer file not found. Please ensure the files are in the correct location.")
     st.stop()
 
-# Initialize SHAP explainer
-def predict_fn(texts):
-    return model.predict_proba(texts)
-
-explainer = shap.Explainer(predict_fn, tfidf)
+# Initialize SHAP Linear Explainer
+explainer = shap.LinearExplainer(model, tfidf)
 
 # Streamlit App
 st.title("📧 Email/SMS Spam Classifier")
@@ -79,7 +76,7 @@ with tab1:
                 try:
                     # Generate SHAP values
                     shap_values = explainer(vector_input)
-                    
+
                     # Display SHAP contributions
                     st.write("#### Contribution of Words to Prediction")
                     fig, ax = plt.subplots(figsize=(10, 5))
