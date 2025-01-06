@@ -4,6 +4,7 @@ import pandas as pd
 from nltk.stem.porter import PorterStemmer
 from PIL import Image
 import easyocr
+import numpy as np
 import shap
 import matplotlib.pyplot as plt
 
@@ -33,25 +34,18 @@ st.markdown("""
 def transform_text(text):
     # Convert to lowercase, remove newlines, and strip spaces
     text = text.lower().replace("\n", " ").strip()
-    
-    # Tokenize using simple split
     words = text.split()  # Split by spaces
-    
-    # Remove non-alphanumeric words
-    words = [word for word in words if word.isalnum()]
-    
-    # Remove stopwords (custom list)
+    words = [word for word in words if word.isalnum()]  # Remove non-alphanumeric words
     custom_stopwords = set(["the", "and", "is", "in", "to", "it", "of", "for", "on", "this", "a"])
-    words = [word for word in words if word not in custom_stopwords]
-    
-    # Perform stemming
-    words = [ps.stem(word) for word in words]
-    
+    words = [word for word in words if word not in custom_stopwords]  # Remove stopwords
+    words = [ps.stem(word) for word in words]  # Perform stemming
     return " ".join(words)
 
 # Extract text using EasyOCR
 def extract_text_from_image(image):
-    results = reader.readtext(image, detail=0)  # Extract text without bounding boxes
+    # Convert PIL image to a NumPy array
+    image_array = np.array(image)
+    results = reader.readtext(image_array, detail=0)  # Extract text without bounding boxes
     return " ".join(results)
 
 # Load the TF-IDF vectorizer and classifier model
@@ -79,18 +73,14 @@ tab1, tab2, tab3 = st.tabs(["📝 Text Input", "📂 CSV File Upload", "🖼️ 
 with tab1:
     st.write("### Enter Message")
     input_sms = st.text_area("Type your message below:", placeholder="e.g., Congratulations! You've won a $1,000 gift card.")
-    
     if st.button('Classify Text', key='text'):
         if input_sms.strip() == "":
             st.warning("⚠️ Please enter a message to classify.")
         else:
             with st.spinner("🔄 Processing your message..."):
-                # Preprocess and classify
                 transformed_sms = transform_text(input_sms)
                 vector_input = tfidf.transform([transformed_sms])
                 result = model.predict(vector_input)[0]
-                
-                # Display classification result
                 st.success("✅ Not Spam" if result == 0 else "🚨 Spam")
 
 # Tab 2: CSV File Upload
@@ -105,20 +95,12 @@ with tab2:
                 if 'message' not in data.columns:
                     st.warning(f"⚠️ No 'message' column in {uploaded_file.name}.")
                     continue
-                
                 with st.spinner(f"🔄 Processing '{uploaded_file.name}'..."):
-                    # Preprocess and classify
                     data['transformed_message'] = data['message'].apply(transform_text)
                     vector_input = tfidf.transform(data['transformed_message'])
-                    predictions = model.predict(vector_input)  # Returns a NumPy array
-                    
-                    # Convert predictions to a Pandas Series and map values
+                    predictions = model.predict(vector_input)
                     data['classification'] = pd.Series(predictions).map({1: "Spam", 0: "Not Spam"})
-                    
-                    # Display results
                     st.write(data[['message', 'classification']])
-                    
-                    # Allow CSV download
                     csv = data[['message', 'classification']].to_csv(index=False)
                     st.download_button(
                         label=f"📥 Download Results for {uploaded_file.name}",
