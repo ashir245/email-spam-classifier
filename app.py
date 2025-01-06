@@ -32,7 +32,6 @@ st.markdown("""
 
 # Function to preprocess and transform text
 def transform_text(text):
-    # Convert to lowercase, remove newlines, and strip spaces
     text = text.lower().replace("\n", " ").strip()
     words = text.split()  # Split by spaces
     words = [word for word in words if word.isalnum()]  # Remove non-alphanumeric words
@@ -40,13 +39,6 @@ def transform_text(text):
     words = [word for word in words if word not in custom_stopwords]  # Remove stopwords
     words = [ps.stem(word) for word in words]  # Perform stemming
     return " ".join(words)
-
-# Extract text using EasyOCR
-def extract_text_from_image(image):
-    # Convert PIL image to a NumPy array
-    image_array = np.array(image)
-    results = reader.readtext(image_array, detail=0)  # Extract text without bounding boxes
-    return " ".join(results)
 
 # Load the TF-IDF vectorizer and classifier model
 try:
@@ -58,8 +50,7 @@ except FileNotFoundError:
 
 # Initialize SHAP explainer
 def predict_fn(texts):
-    transformed_texts = tfidf.transform(texts)
-    return model.predict_proba(transformed_texts)
+    return model.predict_proba(texts)
 
 explainer = shap.Explainer(predict_fn, tfidf)
 
@@ -87,11 +78,12 @@ with tab1:
                 st.write("### SHAP Explanation")
                 try:
                     # Generate SHAP values
-                    shap_values = explainer([transformed_sms])
+                    shap_values = explainer(vector_input)
                     
                     # Display SHAP contributions
                     st.write("#### Contribution of Words to Prediction")
-                    fig = shap.plots.text(shap_values[0], display=False)
+                    fig, ax = plt.subplots(figsize=(10, 5))
+                    shap.summary_plot(shap_values, vector_input, feature_names=tfidf.get_feature_names_out(), plot_type="bar", show=False)
                     st.pyplot(fig)
 
                 except Exception as e:
