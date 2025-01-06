@@ -60,15 +60,15 @@ except FileNotFoundError:
     st.error("❌ Model or vectorizer file not found. Please ensure the files are in the correct location.")
     st.stop()
 
-# Initialize SHAP explainer
+# Initialize SHAP explainer with a custom wrapper for tfidf.transform
 def predict_fn(texts):
     transformed_texts = tfidf.transform(texts)
     return model.predict_proba(transformed_texts)
 
-# Dynamically calculate `max_evals` based on TF-IDF features
-num_features = len(tfidf.get_feature_names_out())
-max_evals = max(2 * num_features + 1, 1000)  # Ensure at least 1000 for small models
-explainer = shap.Explainer(predict_fn, tfidf.transform, max_evals=max_evals)
+def tfidf_transform_wrapper(texts):
+    return tfidf.transform(texts)
+
+explainer = shap.Explainer(predict_fn, tfidf_transform_wrapper)
 
 # Streamlit App
 st.title("📧 Email/SMS Spam Classifier")
