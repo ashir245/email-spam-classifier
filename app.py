@@ -65,7 +65,7 @@ def predict_fn(texts):
     transformed_texts = tfidf.transform(texts)
     return model.predict_proba(transformed_texts)
 
-explainer = shap.Explainer(predict_fn, tfidf)
+explainer = shap.Explainer(predict_fn, tfidf.transform)
 
 # Streamlit App
 st.title("📧 Email/SMS Spam Classifier")
@@ -98,7 +98,7 @@ with tab1:
             try:
                 # Generate SHAP values
                 vector_input = tfidf.transform([transformed_sms])
-                shap_values = explainer.shap_values(vector_input)
+                shap_values = explainer(vector_input)
 
                 # Display SHAP contributions
                 st.write("#### Contribution of Words to Prediction")
