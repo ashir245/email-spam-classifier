@@ -9,4 +9,4 @@ matplotlib
 shap
 easyocr
 uvicorn
-ipython
+
