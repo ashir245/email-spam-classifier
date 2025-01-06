@@ -4,30 +4,33 @@ import pandas as pd
 from nltk.stem.porter import PorterStemmer
 from PIL import Image
 import easyocr
-import numpy as np
 import shap
 import matplotlib.pyplot as plt
-import nltk
-
-# Ensure required NLTK data is downloaded
-nltk.download('punkt')
-nltk.download('stopwords')
-
-# Import IPython for SHAP visualizations
-try:
-    import IPython
-except ImportError:
-    st.error("IPython is required for SHAP visualizations. Install it using 'pip install ipython'.")
-    st.stop()
 
 # Initialize components
 ps = PorterStemmer()
-reader = easyocr.Reader(['en'])
+reader = easyocr.Reader(['en'])  # EasyOCR Reader for English
 
-# Custom stop words
-custom_stopwords = {"the", "and", "is", "in", "to", "it", "of", "for", "on", "this", "a"}
+# Custom stopwords
+custom_stopwords = {"the", "and", "is", "in", "to", "it", "of", "for", "on", "this", "a", "an", "with", "at", "by", "from", "as", "if"}
 
-# Text preprocessing function
+# Custom CSS for styling
+st.markdown("""
+    <style>
+    body {
+        background-color: #f0f8ff;
+        color: #333333;
+    }
+    .block-container {
+        padding: 1rem 2rem;
+        background-color: #ffffff;
+        border-radius: 10px;
+        box-shadow: 0px 4px 8px rgba(0, 0, 0, 0.1);
+    }
+    </style>
+    """, unsafe_allow_html=True)
+
+# Preprocessing function
 def transform_text(text):
     text = text.lower().strip()
     words = [word for word in text.split() if word.isalnum()]
@@ -36,9 +39,9 @@ def transform_text(text):
 
 # EasyOCR text extraction function
 def extract_text_from_image(image):
-    return " ".join(reader.readtext(np.array(image), detail=0))
+    return " ".join(reader.readtext(image, detail=0))
 
-# Load the TF-IDF vectorizer and classifier model
+# Load the TF-IDF vectorizer and model
 try:
     tfidf = pickle.load(open('vectorizer.pkl', 'rb'))
     model = pickle.load(open('model.pkl', 'rb'))
